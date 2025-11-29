@@ -16,8 +16,8 @@ const server = http.createServer((req, res) => {
         `<?xml version="1.0" encoding="UTF-8"?>` +
         `<Response>` +
         `<Message>` +
-        `Hola 👋, soy el asistente del Dr. Berrones. ` +
-        `Cuéntame brevemente qué te pasa y en breve te contactaremos.` +
+        `Hola, soy el asistente virtual del Colegio de Oftalmología de Aguascalientes. ` +
+        `Cuéntame brevemente tu nombre y cuál es tu urgencia y en breve te contactaremos.` +
         `</Message>` +
         `</Response>`;
 
