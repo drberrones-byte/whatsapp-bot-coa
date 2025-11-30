@@ -1,11 +1,11 @@
 const http = require("http");
 const querystring = require("querystring");
 
-// Twilio config
+// Twilio config (desde Heroku Config Vars)
 const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
-const callerNumber = process.env.TWILIO_CALLER_NUMBER;
-const doctorPhone = process.env.DOCTOR_1_PHONE;
+const callerNumber = process.env.TWILIO_CALLER_NUMBER; // número Twilio con VOZ (y si quieres SMS también)
+const doctorPhone = process.env.DOCTOR_1_PHONE; // número del doctor
 
 let twilioClient = null;
 if (accountSid && authToken) {
@@ -15,14 +15,14 @@ if (accountSid && authToken) {
 const PORT = process.env.PORT || 3000;
 
 const server = http.createServer((req, res) => {
-  // Probar que la app está viva
+  // Mostrar que el servidor está vivo
   if (req.url === "/" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
     res.end("Bot de WhatsApp del Dr. Berrones está vivo 😎");
     return;
   }
 
-  // Webhook de Twilio para WhatsApp
+  // Webhook de WhatsApp
   if (req.url === "/whatsapp" && req.method === "POST") {
     let body = "";
     req.on("data", chunk => {
@@ -30,37 +30,47 @@ const server = http.createServer((req, res) => {
     });
 
     req.on("end", () => {
-      // body viene como x-www-form-urlencoded
       const params = querystring.parse(body);
-
-      const from = params.From || "";   // número del paciente (formato "whatsapp:+52...")
-      const msgBody = params.Body || ""; // texto que mandó
+      const from = params.From || "";         // "whatsapp:+52..."
+      const msgBody = params.Body || "";       // mensaje original
 
       const pacienteNumber = from.replace("whatsapp:", ""); // "+52..."
 
       console.log("Mensaje de:", pacienteNumber, "Texto:", msgBody);
 
-      // 1) Responder al paciente en WhatsApp
+      // Respuesta al paciente
       const twiml =
         `<?xml version="1.0" encoding="UTF-8"?>` +
         `<Response>` +
         `<Message>` +
         `Hola 👋, soy el asistente del Dr. Berrones. ` +
         `He recibido tu mensaje: "${msgBody}". ` +
-        `En breve un doctor de guardia revisará tu caso.` +
+        `Un doctor de guardia revisará tu caso y se comunicará contigo.` +
         `</Message>` +
         `</Response>`;
 
-      // 2) Llamar al doctor (Versión 1 simple)
+      //
+      // 📞 Llamada al doctor
+      //
       if (twilioClient && callerNumber && doctorPhone) {
+        
+        // Voice call with pauses + number repeated
         const voiceTwiml =
           `<Response>` +
-          `<Say language="es-MX" voice="alice">` +
-          `Doctor, tiene un paciente que escribió por WhatsApp. ` +
-          `Por favor comuníquese al número ${pacienteNumber}.` +
-          `</Say>` +
+            `<Say language="es-MX" voice="alice">` +
+              `Doctor, tiene un paciente que escribió por WhatsApp.` +
+            `</Say>` +
+            `<Pause length="1"/>` +
+            `<Say language="es-MX" voice="alice">` +
+              `El número del paciente es: ${pacienteNumber}.` +
+            `</Say>` +
+            `<Pause length="1"/>` +
+            `<Say language="es-MX" voice="alice">` +
+              `Se lo repito. El número del paciente es: ${pacienteNumber}.` +
+            `</Say>` +
           `</Response>`;
 
+        // Voice call
         twilioClient.calls
           .create({
             to: doctorPhone,
@@ -73,11 +83,24 @@ const server = http.createServer((req, res) => {
           .catch(err => {
             console.error("Error al llamar al doctor:", err.message);
           });
+
+        //
+        // 📩 SMS al doctor (con el número del paciente)
+        //
+        twilioClient.messages
+          .create({
+            to: doctorPhone,
+            from: callerNumber,    // este número debe permitir SMS
+            body: `Paciente por WhatsApp: ${pacienteNumber}. Mensaje: "${msgBody}".`
+          })
+          .then(msg => console.log("SMS enviado al doctor. SID:", msg.sid))
+          .catch(err => console.error("Error enviando SMS al doctor:", err.message));
+
       } else {
-        console.log("Twilio no configurado para llamadas (revisa SID/TOKEN/NÚMEROS).");
+        console.log("Twilio no configurado para llamadas/SMS (SID/TOKEN/NÚMEROS).");
       }
 
-      // Responder a Twilio (WhatsApp)
+      // Respuesta a Twilio (WhatsApp)
       res.writeHead(200, { "Content-Type": "text/xml; charset=utf-8" });
       res.end(twiml);
     });
@@ -93,3 +116,4 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`Servidor escuchando en puerto ${PORT}`);
 });
+
