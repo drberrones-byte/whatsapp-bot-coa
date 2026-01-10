@@ -18,7 +18,7 @@ const server = http.createServer((req, res) => {
   // Mostrar que el servidor está vivo
   if (req.url === "/" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("Bot de WhatsApp del Dr. Berrones está vivo 😎");
+    res.end("Bot de WhatsApp del Dr. Berrones está vive 😎");
     return;
   }
 
